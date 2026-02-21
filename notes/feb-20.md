@@ -1,4 +1,4 @@
-Jason - Added all intial boiler plate styling and funcitonality. Also created the color scheme and admin account 
+Jason - Added all intial boiler plate styling and funcitonality. Also created the color scheme and admin account, established user/admin validations
 
 Saleem - Modifcation to Jason's work and also split all the files on the client side to make future work easier.
 
