@@ -1,7 +1,28 @@
-import { MOCK_SERVICES } from '../../data/mockData'
+import { useEffect, useState } from 'react'
+import { api } from '../../api'
 import { Badge } from '../../components/shared'
 
 export function AdminDashboard({ setPage }) {
+  const [services, setServices] = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState('')
+
+  const loadServices = () => {
+    api.services.list()
+      .then(setServices)
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => { loadServices() }, [])
+
+  if (loading) return <div className="screen"><p>Loading…</p></div>
+
+  const totalWaiting = services.reduce((sum, s) => sum + s.queueLength, 0)
+  const avgDuration  = services.length
+    ? Math.round(services.reduce((sum, s) => sum + s.duration, 0) / services.length)
+    : 0
+
   return (
     <div className="screen">
       <div className="screen-header">
@@ -9,22 +30,24 @@ export function AdminDashboard({ setPage }) {
         <p className="screen-sub">System overview · Live</p>
       </div>
 
+      {error && <div className="api-error">{error}</div>}
+
       <div className="stats-row">
         <div className="stat-card">
-          <div className="stat-num amber">4</div>
+          <div className="stat-num amber">{services.length}</div>
           <div className="stat-label">Active Services</div>
         </div>
         <div className="stat-card">
-          <div className="stat-num">28</div>
+          <div className="stat-num">{totalWaiting}</div>
           <div className="stat-label">Total in Queue</div>
         </div>
         <div className="stat-card">
-          <div className="stat-num amber">12</div>
+          <div className="stat-num amber">—</div>
           <div className="stat-label">Served Today</div>
         </div>
         <div className="stat-card">
-          <div className="stat-num">~24</div>
-          <div className="stat-label">Avg Wait (min)</div>
+          <div className="stat-num">~{avgDuration}</div>
+          <div className="stat-label">Avg Duration (min)</div>
         </div>
       </div>
 
@@ -33,7 +56,7 @@ export function AdminDashboard({ setPage }) {
           <h3>Service Overview</h3>
           <button className="btn-ghost" onClick={() => setPage('admin-services')}>Manage →</button>
         </div>
-        {MOCK_SERVICES.map(s => (
+        {services.map(s => (
           <div key={s.id} className="admin-service-row">
             <div className="asr-left">
               <div className="asr-name">{s.name}</div>

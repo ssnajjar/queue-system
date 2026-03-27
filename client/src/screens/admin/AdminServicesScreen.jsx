@@ -1,15 +1,25 @@
-import { useState } from 'react'
-import { MOCK_SERVICES } from '../../data/mockData'
+import { useEffect, useState } from 'react'
+import { api } from '../../api'
 import { Badge } from '../../components/shared'
 
 export function AdminServicesScreen() {
-  const [services, setServices] = useState(MOCK_SERVICES)
-  const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({ name: '', description: '', duration: '', priority: 'medium' })
-  const [errors, setErrors] = useState({})
+  const [services, setServices] = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [editing, setEditing]   = useState(null)
+  const [form, setForm]         = useState({ name: '', description: '', duration: '', priority: 'medium' })
+  const [errors, setErrors]     = useState({})
+  const [apiError, setApiError] = useState('')
+  const [saving, setSaving]     = useState(false)
   const [showForm, setShowForm] = useState(false)
 
   const update = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  useEffect(() => {
+    api.services.list()
+      .then(setServices)
+      .catch(err => setApiError(err.message))
+      .finally(() => setLoading(false))
+  }, [])
 
   const validate = () => {
     const e = {}
@@ -26,6 +36,7 @@ export function AdminServicesScreen() {
     setForm({ name: s.name, description: s.description, duration: String(s.duration), priority: s.priority })
     setShowForm(true)
     setErrors({})
+    setApiError('')
   }
 
   const handleNew = () => {
@@ -33,20 +44,46 @@ export function AdminServicesScreen() {
     setForm({ name: '', description: '', duration: '', priority: 'medium' })
     setShowForm(true)
     setErrors({})
+    setApiError('')
   }
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault()
     const errs = validate()
     if (Object.keys(errs).length > 0) { setErrors(errs); return }
-    if (editing) {
-      setServices(sv => sv.map(s => s.id === editing ? { ...s, ...form, duration: +form.duration } : s))
-    } else {
-      setServices(sv => [...sv, { id: Date.now(), ...form, duration: +form.duration, queueLength: 0 }])
+
+    setSaving(true)
+    setApiError('')
+    try {
+      const payload = { name: form.name, description: form.description, duration: +form.duration, priority: form.priority }
+
+      if (editing) {
+        const data = await api.services.update(editing, payload)
+        setServices(sv => sv.map(s => s.id === editing ? { ...s, ...data.service } : s))
+      } else {
+        const data = await api.services.create(payload)
+        setServices(sv => [...sv, { ...data.service, queueLength: 0 }])
+      }
+      setShowForm(false)
+      setEditing(null)
+    } catch (err) {
+      setApiError(err.message)
+    } finally {
+      setSaving(false)
     }
-    setShowForm(false)
-    setEditing(null)
   }
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this service?')) return
+    try {
+      await api.services.delete(id)
+      setServices(sv => sv.filter(s => s.id !== id))
+    } catch (err) {
+      setApiError(err.message)
+    }
+  }
+
+  if (loading) return <div className="screen"><p>Loading services…</p></div>
 
   return (
     <div className="screen">
@@ -55,6 +92,8 @@ export function AdminServicesScreen() {
         <button className="btn-primary" onClick={handleNew}>+ New Service</button>
       </div>
 
+      {apiError && <div className="api-error">{apiError}</div>}
+
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -62,19 +101,35 @@ export function AdminServicesScreen() {
             <form onSubmit={handleSave} noValidate>
               <div className="field-group">
                 <label>Service Name <span className="req">*</span></label>
-                <input type="text" maxLength={100} placeholder="e.g. Academic Advising" value={form.name} onChange={e => update('name', e.target.value)} className={errors.name ? 'input-err' : ''} />
+                <input
+                  type="text" maxLength={100}
+                  placeholder="e.g. Academic Advising"
+                  value={form.name}
+                  onChange={e => update('name', e.target.value)}
+                  className={errors.name ? 'input-err' : ''}
+                />
                 <span className="char-count">{form.name.length}/100</span>
                 {errors.name && <span className="err-msg">{errors.name}</span>}
               </div>
               <div className="field-group">
                 <label>Description <span className="req">*</span></label>
-                <textarea rows={3} placeholder="Describe this service..." value={form.description} onChange={e => update('description', e.target.value)} className={errors.description ? 'input-err' : ''} />
+                <textarea
+                  rows={3} placeholder="Describe this service..."
+                  value={form.description}
+                  onChange={e => update('description', e.target.value)}
+                  className={errors.description ? 'input-err' : ''}
+                />
                 {errors.description && <span className="err-msg">{errors.description}</span>}
               </div>
               <div className="field-row">
                 <div className="field-group">
                   <label>Expected Duration (min) <span className="req">*</span></label>
-                  <input type="number" min={1} placeholder="30" value={form.duration} onChange={e => update('duration', e.target.value)} className={errors.duration ? 'input-err' : ''} />
+                  <input
+                    type="number" min={1} placeholder="30"
+                    value={form.duration}
+                    onChange={e => update('duration', e.target.value)}
+                    className={errors.duration ? 'input-err' : ''}
+                  />
                   {errors.duration && <span className="err-msg">{errors.duration}</span>}
                 </div>
                 <div className="field-group">
@@ -86,9 +141,12 @@ export function AdminServicesScreen() {
                   </select>
                 </div>
               </div>
+              {apiError && <div className="api-error">{apiError}</div>}
               <div className="modal-actions">
                 <button type="button" className="btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
-                <button type="submit" className="btn-primary">{editing ? 'Save Changes' : 'Create Service'}</button>
+                <button type="submit" className="btn-primary" disabled={saving}>
+                  {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create Service'}
+                </button>
               </div>
             </form>
           </div>
@@ -105,6 +163,7 @@ export function AdminServicesScreen() {
             </div>
             <Badge priority={s.priority} />
             <button className="btn-sm btn-edit" onClick={() => handleEdit(s)}>Edit</button>
+            <button className="btn-sm btn-remove" onClick={() => handleDelete(s.id)}>Delete</button>
           </div>
         ))}
       </div>
