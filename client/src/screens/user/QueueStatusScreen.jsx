@@ -1,20 +1,43 @@
-import { useState } from 'react'
-import { MOCK_QUEUES_BY_SERVICE } from '../../data/mockData'
+import { useEffect, useState } from 'react'
+import { api } from '../../api'
 
-export function QueueStatusScreen({ inQueue, setInQueue, currentQueueService, setCurrentQueueService, queueEntry, setQueueEntry }) {
-  const [status, setStatus] = useState('waiting')
+export function QueueStatusScreen({ user, inQueue, setInQueue, currentQueueService, setCurrentQueueService, queueEntry, setQueueEntry }) {
+  const [liveQueue, setLiveQueue] = useState([])
+  const [loading, setLoading]     = useState(false)
+  const [leaving, setLeaving]     = useState(false)
+  const [error, setError]         = useState('')
 
-  const leaveQueue = () => {
-    setInQueue(false)
-    setCurrentQueueService(null)
-    setQueueEntry(null)
-    setStatus('waiting')
+  // fetch live queue from backend whenever the user is in a queue
+  useEffect(() => {
+    if (!inQueue || !queueEntry?.serviceId) return
+    setLoading(true)
+    api.queue.get(queueEntry.serviceId)
+      .then(data => setLiveQueue(data.queue || []))
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [inQueue, queueEntry?.serviceId])
+
+  const leaveQueue = async () => {
+    if (!user || !queueEntry) return
+    setLeaving(true)
+    setError('')
+    try {
+      await api.queue.leave(queueEntry.serviceId, user.id)
+      setInQueue(false)
+      setCurrentQueueService(null)
+      setQueueEntry(null)
+      setLiveQueue([])
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLeaving(false)
+    }
   }
 
-  const baseQueue = queueEntry ? (MOCK_QUEUES_BY_SERVICE[queueEntry.serviceId] || []) : []
-  const previewQueue = queueEntry
-    ? [...baseQueue, { id: 9999, name: 'You', position: queueEntry.position, waitTime: queueEntry.waitTime, status: 'waiting', isYou: true }]
-    : []
+  // derive status from live position
+  const myStatus = queueEntry
+    ? (queueEntry.position <= 2 ? 'almost-ready' : 'waiting')
+    : 'waiting'
 
   return (
     <div className="screen">
@@ -22,6 +45,8 @@ export function QueueStatusScreen({ inQueue, setInQueue, currentQueueService, se
         <h1>Queue Status</h1>
         <p className="screen-sub">{currentQueueService || 'No active queue'}</p>
       </div>
+
+      {error && <div className="api-error">{error}</div>}
 
       {!inQueue ? (
         <div className="card empty-card">
@@ -39,10 +64,9 @@ export function QueueStatusScreen({ inQueue, setInQueue, currentQueueService, se
               </div>
             </div>
             <div className="status-info">
-              <div className={`status-badge status-${status}`}>
-                {status === 'waiting' && '⏳ Waiting'}
-                {status === 'almost-ready' && '⚡ Almost Ready'}
-                {status === 'served' && '✓ Served'}
+              <div className={`status-badge status-${myStatus}`}>
+                {myStatus === 'waiting'      && '⏳ Waiting'}
+                {myStatus === 'almost-ready' && '⚡ Almost Ready'}
               </div>
               <div className="wait-display">
                 <span className="wait-num">~{queueEntry.waitTime}</span>
@@ -53,27 +77,23 @@ export function QueueStatusScreen({ inQueue, setInQueue, currentQueueService, se
           </div>
 
           <div className="queue-list card">
-            <div className="card-header"><h3>Queue Preview</h3></div>
-            {previewQueue.map(person => (
-              <div key={person.id} className={`queue-row ${person.isYou ? 'you' : ''}`}>
+            <div className="card-header">
+              <h3>Queue Preview</h3>
+              {loading && <span className="sim-label">Loading…</span>}
+            </div>
+            {liveQueue.map(person => (
+              <div key={person.id} className={`queue-row ${person.userId === user?.id ? 'you' : ''}`}>
                 <div className="q-pos">#{person.position}</div>
-                <div className="q-name">{person.isYou ? 'You' : person.name}</div>
+                <div className="q-name">{person.userId === user?.id ? 'You' : person.name}</div>
                 <div className="q-wait">~{person.waitTime} min</div>
-                <div className={`q-status-dot dot-${person.isYou ? status : person.status}`}></div>
+                <div className={`q-status-dot dot-${person.status}`}></div>
               </div>
             ))}
           </div>
 
-          <div className="status-sim-controls card">
-            <div className="card-header"><h3>Simulate Status Change</h3><span className="sim-label">Demo only</span></div>
-            <div className="sim-btns">
-              <button className="btn-ghost" onClick={() => setStatus('waiting')}>Waiting</button>
-              <button className="btn-ghost" onClick={() => setStatus('almost-ready')}>Almost Ready</button>
-              <button className="btn-ghost" onClick={() => setStatus('served')}>Served</button>
-            </div>
-          </div>
-
-          <button className="btn-danger" onClick={leaveQueue}>Leave Queue</button>
+          <button className="btn-danger" onClick={leaveQueue} disabled={leaving}>
+            {leaving ? 'Leaving…' : 'Leave Queue'}
+          </button>
         </>
       )}
     </div>

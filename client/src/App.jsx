@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import './App.css'
-
 import { Sidebar } from './components/Sidebar'
 import { LoginScreen } from './screens/LoginScreen'
 import { UserDashboard } from './screens/user/UserDashboard'
@@ -12,14 +11,14 @@ import { AdminServicesScreen } from './screens/admin/AdminServicesScreen'
 import { AdminQueueScreen } from './screens/admin/AdminQueueScreen'
 
 export default function App() {
-  const [loggedIn, setLoggedIn] = useState(false)
-  const [role, setRole] = useState('user')
-  const [currentUser, setCurrentUser] = useState(null)
-  const [page, setPage] = useState('dashboard')
-  const [activeService, setActiveService] = useState(null)
-  const [inQueue, setInQueue] = useState(false)
+  const [loggedIn, setLoggedIn]                     = useState(false)
+  const [role, setRole]                             = useState('user')
+  const [currentUser, setCurrentUser]               = useState(null)
+  const [page, setPage]                             = useState('dashboard')
+  const [activeService, setActiveService]           = useState(null)
+  const [inQueue, setInQueue]                       = useState(false)
   const [currentQueueService, setCurrentQueueService] = useState(null)
-  const [queueEntry, setQueueEntry] = useState(null) // { position, waitTime, serviceId }
+  const [queueEntry, setQueueEntry]                 = useState(null)
 
   const handleLogin = (r, user) => {
     setRole(r)
@@ -44,6 +43,7 @@ export default function App() {
     switch (page) {
       case 'dashboard': return (
         <UserDashboard
+          user={currentUser}
           setPage={setPage}
           setActiveService={setActiveService}
           inQueue={inQueue}
@@ -53,6 +53,7 @@ export default function App() {
       )
       case 'join': return (
         <JoinQueueScreen
+          user={currentUser}
           activeService={activeService}
           setActiveService={setActiveService}
           setPage={setPage}
@@ -63,6 +64,7 @@ export default function App() {
       )
       case 'status': return (
         <QueueStatusScreen
+          user={currentUser}
           inQueue={inQueue}
           setInQueue={setInQueue}
           currentQueueService={currentQueueService}
@@ -71,12 +73,13 @@ export default function App() {
           setQueueEntry={setQueueEntry}
         />
       )
-      case 'history': return <HistoryScreen />
+      case 'history':        return <HistoryScreen user={currentUser} />
       case 'admin-dashboard': return <AdminDashboard setPage={setPage} />
-      case 'admin-services': return <AdminServicesScreen />
-      case 'admin-queue': return <AdminQueueScreen />
+      case 'admin-services':  return <AdminServicesScreen />
+      case 'admin-queue':     return <AdminQueueScreen />
       default: return (
         <UserDashboard
+          user={currentUser}
           setPage={setPage}
           setActiveService={setActiveService}
           inQueue={inQueue}

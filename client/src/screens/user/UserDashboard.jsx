@@ -1,8 +1,37 @@
-import { MOCK_SERVICES, MOCK_NOTIFICATIONS } from '../../data/mockData'
+import { useEffect, useState } from 'react'
+import { api } from '../../api'
 import { Badge, Notification } from '../../components/shared'
 
-export function UserDashboard({ setPage, setActiveService, inQueue, currentQueueService, queueEntry }) {
-  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+export function UserDashboard({ user, setPage, setActiveService, inQueue, currentQueueService, queueEntry }) {
+  const [services, setServices]           = useState([])
+  const [notifications, setNotifications] = useState([])
+  const [loading, setLoading]             = useState(true)
+
+  const today = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  })
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [svcs, notifs] = await Promise.all([
+          api.services.list(),
+          user?.id ? api.notifications.list(user.id) : Promise.resolve([]),
+        ])
+        setServices(svcs)
+        setNotifications(notifs)
+      } catch (err) {
+        console.error('Dashboard load error:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [user])
+
+  if (loading) return <div className="screen"><p>Loading…</p></div>
+
+  const totalWaiting = services.reduce((sum, s) => sum + s.queueLength, 0)
 
   return (
     <div className="screen">
@@ -13,19 +42,25 @@ export function UserDashboard({ setPage, setActiveService, inQueue, currentQueue
 
       <div className="stats-row">
         <div className="stat-card">
-          <div className="stat-num amber">{MOCK_SERVICES.length}</div>
+          <div className="stat-num amber">{services.length}</div>
           <div className="stat-label">Active Services</div>
         </div>
         <div className="stat-card">
-          <div className={`stat-num ${inQueue ? '' : 'muted'}`}>{inQueue ? `#${queueEntry.position}` : '—'}</div>
+          <div className={`stat-num ${inQueue ? '' : 'muted'}`}>
+            {inQueue ? `#${queueEntry.position}` : '—'}
+          </div>
           <div className="stat-label">Your Position</div>
         </div>
         <div className="stat-card">
-          <div className={`stat-num ${inQueue ? 'amber' : 'muted'}`}>{inQueue ? `~${queueEntry.waitTime}` : '—'}</div>
+          <div className={`stat-num ${inQueue ? 'amber' : 'muted'}`}>
+            {inQueue ? `~${queueEntry.waitTime}` : '—'}
+          </div>
           <div className="stat-label">Min Wait</div>
         </div>
         <div className="stat-card">
-          <div className={`stat-num ${inQueue ? '' : 'muted'}`}>{inQueue ? MOCK_NOTIFICATIONS.length : 0}</div>
+          <div className={`stat-num ${inQueue ? '' : 'muted'}`}>
+            {inQueue ? notifications.length : 0}
+          </div>
           <div className="stat-label">Notifications</div>
         </div>
       </div>
@@ -49,7 +84,7 @@ export function UserDashboard({ setPage, setActiveService, inQueue, currentQueue
             <h3>Available Services</h3>
             <button className="btn-ghost" onClick={() => setPage('join')}>View All →</button>
           </div>
-          {MOCK_SERVICES.slice(0, 3).map(s => (
+          {services.slice(0, 3).map(s => (
             <div key={s.id} className="service-row" onClick={() => { setActiveService(s); setPage('join') }}>
               <div>
                 <div className="service-name">{s.name}</div>
@@ -62,8 +97,8 @@ export function UserDashboard({ setPage, setActiveService, inQueue, currentQueue
 
         <div className="card">
           <div className="card-header"><h3>Notifications</h3></div>
-          {inQueue
-            ? MOCK_NOTIFICATIONS.map(n => <Notification key={n.id} notif={n} />)
+          {inQueue && notifications.length > 0
+            ? notifications.map(n => <Notification key={n.id} notif={n} />)
             : (
               <div className="notif-empty">
                 <p>No notifications yet.</p>
