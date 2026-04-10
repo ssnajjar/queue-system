@@ -1,18 +1,18 @@
+require("dotenv").config();
 const express = require("express");
 const cors    = require("cors");
 
-const authRoutes          = require("./routes/auth");
-const serviceRoutes       = require("./routes/services");
-const queueRoutes         = require("./routes/queue");
-const notificationRoutes  = require("./routes/notifications");
-const historyRoutes       = require("./routes/history");
+const authRoutes         = require("./routes/auth");
+const serviceRoutes      = require("./routes/services");
+const queueRoutes        = require("./routes/queue");
+const notificationRoutes = require("./routes/notifications");
+const historyRoutes      = require("./routes/history");
 
 const app  = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-
-app.use(cors());            
-app.use(express.json());         
+app.use(cors());
+app.use(express.json());
 
 app.use("/api/auth",          authRoutes);
 app.use("/api/services",      serviceRoutes);
@@ -33,8 +33,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-app.listen(PORT, () => {
-  console.log(`QueueSmart API running on http://localhost:${PORT}`);
-});
+// Only start listening when run directly (not imported by tests)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`QueueSmart API running on http://localhost:${PORT}`);
+  });
+}
 
-module.exports = app; 
+module.exports = app;

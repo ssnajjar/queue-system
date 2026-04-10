@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { api } from './api'
 import './App.css'
 import { Sidebar } from './components/Sidebar'
 import { LoginScreen } from './screens/LoginScreen'
@@ -20,11 +21,25 @@ export default function App() {
   const [currentQueueService, setCurrentQueueService] = useState(null)
   const [queueEntry, setQueueEntry]                 = useState(null)
 
-  const handleLogin = (r, user) => {
+  const handleLogin = async (r, user) => {
     setRole(r)
     setCurrentUser(user)
     setPage(r === 'admin' ? 'admin-dashboard' : 'dashboard')
     setLoggedIn(true)
+
+    // check if they were already in a queue before logging out
+    if (r !== 'admin') {
+      try {
+        const data = await api.queue.active(user.id)
+        if (data) {
+          setInQueue(true)
+          setCurrentQueueService(data.entry.serviceName)
+          setQueueEntry(data.entry)
+        }
+      } catch {
+        // not in a queue, or request failed — defaults are fine
+      }
+    }
   }
 
   const handleLogout = () => {

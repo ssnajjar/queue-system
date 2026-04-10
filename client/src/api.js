@@ -1,6 +1,6 @@
 // src/api.js
-// Central place for all backend calls
-// Swap BASE_URL here if the server port ever changes.
+// all backend calls go through here
+// if the server port changes, just update BASE_URL
 
 const BASE_URL = 'http://localhost:3000/api'
 
@@ -35,10 +35,12 @@ export const api = {
   },
 
   queue: {
-    get:   (serviceId)             => request('GET',    `/queue/${serviceId}`),
-    join:  (serviceId, userId, name) => request('POST',   `/queue/${serviceId}/join`,  { userId, name }),
-    leave: (serviceId, userId)     => request('DELETE', `/queue/${serviceId}/leave`, { userId }),
-    serve: (serviceId)             => request('POST',   `/queue/${serviceId}/serve`),
+    get:    (serviceId)              => request('GET',    `/queue/${serviceId}`),
+    active: (userId)                 => request('GET',    `/queue/active/${userId}`),
+    join:   (serviceId, userId, name) => request('POST',   `/queue/${serviceId}/join`,  { userId, name }),
+    leave:  (serviceId, userId)      => request('DELETE', `/queue/${serviceId}/leave`, { userId }),
+    serve:     (serviceId)              => request('POST',  `/queue/${serviceId}/serve`),
+    setStatus: (serviceId, status)      => request('PUT',   `/queue/${serviceId}/status`, { status }),
   },
 
   notifications: {
