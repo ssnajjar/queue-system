@@ -16,6 +16,17 @@ export function AdminDashboard({ setPage }) {
 
   useEffect(() => { loadServices() }, [])
 
+  const toggleQueueStatus = async (serviceId, newStatus) => {
+    try {
+      await api.queue.setStatus(serviceId, newStatus)
+      setServices(prev => prev.map(s =>
+        s.id === serviceId ? { ...s, queueStatus: newStatus } : s
+      ))
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   if (loading) return <div className="screen"><p>Loading…</p></div>
 
   const totalWaiting = services.reduce((sum, s) => sum + s.queueLength, 0)
@@ -68,8 +79,16 @@ export function AdminDashboard({ setPage }) {
             </div>
             <Badge priority={s.priority} />
             <div className="quick-actions">
-              <button className="btn-sm btn-open">Open</button>
-              <button className="btn-sm btn-close">Close</button>
+              <button
+                className="btn-sm btn-open"
+                disabled={s.queueStatus === 'open'}
+                onClick={() => toggleQueueStatus(s.id, 'open')}
+              >Open</button>
+              <button
+                className="btn-sm btn-close"
+                disabled={s.queueStatus === 'closed'}
+                onClick={() => toggleQueueStatus(s.id, 'closed')}
+              >Close</button>
             </div>
           </div>
         ))}

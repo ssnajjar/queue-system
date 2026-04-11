@@ -1,76 +1,115 @@
 // routes/services.js
 const express = require("express");
 const router  = express.Router();
-const store   = require("../data/store");
+const db      = require("../db");
 const { validateService } = require("../middleware/validate");
 
-router.get("/", (req, res) => {
-  const servicesWithQueue = store.services.map((s) => ({
-    ...s,
-    queueLength: (store.queues[s.id] || []).length,
-  }));
-  return res.status(200).json(servicesWithQueue);
-});
+const SERVICE_SELECT = `
+  SELECT s.id, s.name, s.description,
+         s.expected_duration AS duration,
+         s.priority_level    AS priority,
+         COALESCE(
+           (SELECT status FROM queue WHERE service_id = s.id ORDER BY created_date DESC LIMIT 1),
+           'open'
+         ) AS "queueStatus",
+         (
+           SELECT COUNT(*) FROM queue_entry qe
+           JOIN queue q ON qe.queue_id = q.id
+           WHERE q.service_id = s.id AND qe.status = 'waiting'
+         ) AS "queueLength"
+  FROM service s
+`;
 
-router.get("/:id", (req, res) => {
-  const service = store.services.find((s) => s.id === parseInt(req.params.id));
-  if (!service) return res.status(404).json({ error: "Service not found" });
-
-  return res.status(200).json({
-    ...service,
-    queueLength: (store.queues[service.id] || []).length,
-  });
-});
-
-router.post("/", validateService, (req, res) => {
-  const { name, description, duration, priority } = req.body;
-
-  const duplicate = store.services.find(
-    (s) => s.name.toLowerCase() === name.trim().toLowerCase()
-  );
-  if (duplicate) {
-    return res.status(409).json({ error: "A service with this name already exists" });
+router.get("/", async (req, res) => {
+  try {
+    const result = await db.query(SERVICE_SELECT + " ORDER BY s.id");
+    const services = result.rows.map((s) => ({ ...s, queueLength: parseInt(s.queueLength) || 0 }));
+    return res.status(200).json(services);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Internal server error" });
   }
-
-  const newService = {
-    id:          store.services.length + 1,
-    name:        name.trim(),
-    description: description.trim(),
-    duration:    Number(duration),
-    priority,
-  };
-
-  store.services.push(newService);
-  store.queues[newService.id] = [];
-
-  return res.status(201).json({ message: "Service created", service: newService });
 });
 
-router.put("/:id", validateService, (req, res) => {
-  const index = store.services.findIndex((s) => s.id === parseInt(req.params.id));
-  if (index === -1) return res.status(404).json({ error: "Service not found" });
+router.get("/:id", async (req, res) => {
+  try {
+    const result = await db.query(
+      SERVICE_SELECT + " WHERE s.id = $1",
+      [req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: "Service not found" });
+    const s = result.rows[0];
+    return res.status(200).json({ ...s, queueLength: parseInt(s.queueLength) || 0 });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
+router.post("/", validateService, async (req, res) => {
   const { name, description, duration, priority } = req.body;
 
-  store.services[index] = {
-    ...store.services[index],
-    name:        name.trim(),
-    description: description.trim(),
-    duration:    Number(duration),
-    priority,
-  };
+  try {
+    const dup = await db.query(
+      "SELECT id FROM service WHERE LOWER(name) = LOWER($1)",
+      [name.trim()]
+    );
+    if (dup.rows.length > 0) {
+      return res.status(409).json({ error: "A service with this name already exists" });
+    }
 
-  return res.status(200).json({ message: "Service updated", service: store.services[index] });
+    const result = await db.query(
+      `INSERT INTO service (name, description, expected_duration, priority_level)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, name, description, expected_duration AS duration, priority_level AS priority`,
+      [name.trim(), description.trim(), Number(duration), priority]
+    );
+    const service = result.rows[0];
+
+    // Create an open queue for the new service
+    await db.query(
+      "INSERT INTO queue (service_id, status) VALUES ($1, 'open')",
+      [service.id]
+    );
+
+    return res.status(201).json({ message: "Service created", service });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 });
 
-router.delete("/:id", (req, res) => {
-  const index = store.services.findIndex((s) => s.id === parseInt(req.params.id));
-  if (index === -1) return res.status(404).json({ error: "Service not found" });
+router.put("/:id", validateService, async (req, res) => {
+  const { name, description, duration, priority } = req.body;
 
-  store.services.splice(index, 1);
-  delete store.queues[req.params.id];
+  try {
+    const result = await db.query(
+      `UPDATE service
+       SET name = $1, description = $2, expected_duration = $3, priority_level = $4
+       WHERE id = $5
+       RETURNING id, name, description, expected_duration AS duration, priority_level AS priority`,
+      [name.trim(), description.trim(), Number(duration), priority, req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: "Service not found" });
+    return res.status(200).json({ message: "Service updated", service: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
-  return res.status(200).json({ message: "Service deleted" });
+router.delete("/:id", async (req, res) => {
+  try {
+    const result = await db.query(
+      "DELETE FROM service WHERE id = $1 RETURNING id",
+      [req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: "Service not found" });
+    return res.status(200).json({ message: "Service deleted" });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 module.exports = router;
