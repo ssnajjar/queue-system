@@ -9,6 +9,7 @@ export function Sidebar({ page, setPage, role, currentUser, onLogout }) {
       { key: 'admin-dashboard', label: 'Dashboard', icon: '⊞' },
       { key: 'admin-services', label: 'Services', icon: '⚙' },
       { key: 'admin-queue', label: 'Queue Mgmt', icon: '≡' },
+      { key: 'admin-reports', label: 'Reports', icon: '⎙' },
     ]
     const nav = role === 'admin' ? adminNav : userNav
   

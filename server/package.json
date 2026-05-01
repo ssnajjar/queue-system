@@ -7,7 +7,8 @@
     "dev":     "nodemon server.js",
     "test":    "jest --coverage --forceExit",
     "db:init": "node db/init.js",
-    "db:seed": "node db/seed.js"
+    "db:seed": "node db/seed.js",
+    "db:seed-demo": "node db/seed-demo.js"
   },
   "keywords": [],
   "author": "",

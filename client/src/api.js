@@ -52,4 +52,24 @@ export const api = {
   history: {
     list: (userId) => request('GET', `/history/${userId}`),
   },
+
+  smart: {
+    estimate: (serviceId) => request('GET', `/smart/estimate/${serviceId}`),
+  },
+
+  reports: {
+    summary: (filters = {}) => {
+      const params = new URLSearchParams(filters).toString()
+      return request('GET', `/reports/summary${params ? '?' + params : ''}`)
+    },
+    history: (filters = {}) => {
+      const params = new URLSearchParams(filters).toString()
+      return request('GET', `/reports/history${params ? '?' + params : ''}`)
+    },
+    // Returns a download URL — caller opens it via an <a> click
+    csvUrl: (filters = {}) => {
+      const params = new URLSearchParams(filters).toString()
+      return `${BASE_URL}/reports/export/csv${params ? '?' + params : ''}`
+    },
+  },
 }
