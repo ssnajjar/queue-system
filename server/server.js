@@ -8,7 +8,7 @@ const queueRoutes        = require("./routes/queue");
 const notificationRoutes = require("./routes/notifications");
 const historyRoutes      = require("./routes/history");
 const reportRoutes       = require("./routes/reports");
-const smartRoutes        = require("./routes/smart");
+const smartRoutes        = require("./routes/smartWait");
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
