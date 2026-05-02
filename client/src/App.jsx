@@ -10,7 +10,7 @@ import { HistoryScreen } from './screens/user/HistoryScreen'
 import { AdminDashboard } from './screens/admin/AdminDashboard'
 import { AdminServicesScreen } from './screens/admin/AdminServicesScreen'
 import { AdminQueueScreen } from './screens/admin/AdminQueueScreen'
-import { AdminReportsScreen } from './screens/admin/AdminReportsScreen'
+import { AdminReports } from './screens/admin/AdminReports'
 
 export default function App() {
   const [loggedIn, setLoggedIn]                     = useState(false)
@@ -93,7 +93,7 @@ export default function App() {
       case 'admin-dashboard': return <AdminDashboard setPage={setPage} />
       case 'admin-services':  return <AdminServicesScreen />
       case 'admin-queue':     return <AdminQueueScreen />
-      case 'admin-reports':   return <AdminReportsScreen />
+      case 'admin-reports':   return <AdminReports />
       default: return (
         <UserDashboard
           user={currentUser}
