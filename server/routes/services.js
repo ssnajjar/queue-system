@@ -2,7 +2,7 @@
 const express = require("express");
 const router  = express.Router();
 const db      = require("../db");
-const { validateService } = require("../middleware/validate");
+const { validateService, requireAdmin } = require("../middleware/validate");
 
 const SERVICE_SELECT = `
   SELECT s.id, s.name, s.description,
@@ -46,7 +46,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-router.post("/", validateService, async (req, res) => {
+router.post("/", validateService, requireAdmin, async (req, res) => {
   const { name, description, duration, priority } = req.body;
 
   try {
@@ -79,7 +79,7 @@ router.post("/", validateService, async (req, res) => {
   }
 });
 
-router.put("/:id", validateService, async (req, res) => {
+router.put("/:id", validateService, requireAdmin, async (req, res) => {
   const { name, description, duration, priority } = req.body;
 
   try {
@@ -98,7 +98,7 @@ router.put("/:id", validateService, async (req, res) => {
   }
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAdmin, async (req, res) => {
   try {
     const result = await db.query(
       "DELETE FROM service WHERE id = $1 RETURNING id",

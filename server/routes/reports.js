@@ -2,6 +2,9 @@
 const express = require("express");
 const router  = express.Router();
 const db      = require("../db");
+const { requireAdmin } = require("../middleware/validate");
+
+router.use(requireAdmin);
 
 // Build WHERE clause from optional query filters
 function buildFilters(query) {

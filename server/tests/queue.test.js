@@ -11,49 +11,66 @@ const mockEntry   = {
   wait_time_minutes: 30, join_time: "2024-01-01T00:00:00Z",
 };
 
+const ADMIN_MOCK = { rows: [{ role: "admin" }] };
+
 beforeEach(() => {
   jest.clearAllMocks();
 });
 
-// -- open / close queue
+// -- open / close queue (admin only)
 
 describe("PUT /api/queue/:serviceId/status", () => {
   test("closes an open queue", async () => {
     db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)             // requireAdmin
       .mockResolvedValueOnce({ rows: [{ id: 1 }] }) // service exists
       .mockResolvedValueOnce({ rows: [] })           // insert (on conflict do nothing)
       .mockResolvedValueOnce({ rows: [] });          // update status
 
-    const res = await request(app).put("/api/queue/1/status").send({ status: "closed" });
+    const res = await request(app).put("/api/queue/1/status").set("x-user-id", "1").send({ status: "closed" });
     expect(res.statusCode).toBe(200);
     expect(res.body.status).toBe("closed");
   });
 
   test("opens a closed queue", async () => {
     db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
       .mockResolvedValueOnce({ rows: [{ id: 1 }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
 
-    const res = await request(app).put("/api/queue/1/status").send({ status: "open" });
+    const res = await request(app).put("/api/queue/1/status").set("x-user-id", "1").send({ status: "open" });
     expect(res.statusCode).toBe(200);
     expect(res.body.status).toBe("open");
   });
 
   test("rejects invalid status value", async () => {
-    const res = await request(app).put("/api/queue/1/status").send({ status: "paused" });
+    db.query.mockResolvedValueOnce(ADMIN_MOCK); // requireAdmin passes; handler rejects
+
+    const res = await request(app).put("/api/queue/1/status").set("x-user-id", "1").send({ status: "paused" });
     expect(res.statusCode).toBe(400);
   });
 
+  test("returns 401 when no x-user-id header", async () => {
+    const res = await request(app).put("/api/queue/1/status").send({ status: "closed" });
+    expect(res.statusCode).toBe(401);
+  });
+
   test("returns 404 for unknown service", async () => {
-    db.query.mockResolvedValueOnce({ rows: [] });
-    const res = await request(app).put("/api/queue/999/status").send({ status: "closed" });
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)      // requireAdmin
+      .mockResolvedValueOnce({ rows: [] });   // service not found
+
+    const res = await request(app).put("/api/queue/999/status").set("x-user-id", "1").send({ status: "closed" });
     expect(res.statusCode).toBe(404);
   });
 
   test("returns 500 on database error", async () => {
-    db.query.mockRejectedValueOnce(new Error("DB error"));
-    const res = await request(app).put("/api/queue/1/status").send({ status: "closed" });
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)                 // requireAdmin
+      .mockRejectedValueOnce(new Error("DB error"));     // handler query fails
+
+    const res = await request(app).put("/api/queue/1/status").set("x-user-id", "1").send({ status: "closed" });
     expect(res.statusCode).toBe(500);
   });
 });
@@ -285,11 +302,12 @@ describe("DELETE /api/queue/:serviceId/leave", () => {
   });
 });
 
-// -- serve next
+// -- serve next (admin only)
 
 describe("POST /api/queue/:serviceId/serve", () => {
   function mockServe({ serviceRows = [mockService], queueRows = [{ id: 1 }], firstRows = [mockEntry], newFirstRows = [] } = {}) {
     db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)              // requireAdmin
       .mockResolvedValueOnce({ rows: serviceRows })   // get service
       .mockResolvedValueOnce({ rows: queueRows })     // get queue
       .mockResolvedValueOnce({ rows: firstRows })     // first waiting entry
@@ -302,21 +320,21 @@ describe("POST /api/queue/:serviceId/serve", () => {
 
   test("admin can serve next user", async () => {
     mockServe();
-    const res = await request(app).post("/api/queue/1/serve");
+    const res = await request(app).post("/api/queue/1/serve").set("x-user-id", "1");
     expect(res.statusCode).toBe(200);
     expect(res.body.served.userId).toBe(2);
   });
 
   test("returns remaining queue after serving", async () => {
     mockServe();
-    const res = await request(app).post("/api/queue/1/serve");
+    const res = await request(app).post("/api/queue/1/serve").set("x-user-id", "1");
     expect(res.body).toHaveProperty("remainingQueue");
     expect(Array.isArray(res.body.remainingQueue)).toBe(true);
   });
 
   test("notifies served user", async () => {
     mockServe();
-    await request(app).post("/api/queue/1/serve");
+    await request(app).post("/api/queue/1/serve").set("x-user-id", "1");
 
     const allCalls = db.query.mock.calls;
     const notifCall = allCalls.find(
@@ -325,26 +343,38 @@ describe("POST /api/queue/:serviceId/serve", () => {
     expect(notifCall).toBeDefined();
   });
 
+  test("returns 401 when no x-user-id header", async () => {
+    const res = await request(app).post("/api/queue/1/serve");
+    expect(res.statusCode).toBe(401);
+  });
+
   test("returns 400 when queue is empty", async () => {
     db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)              // requireAdmin
       .mockResolvedValueOnce({ rows: [mockService] })
       .mockResolvedValueOnce({ rows: [{ id: 1 }] })
       .mockResolvedValueOnce({ rows: [] }); // no entries
 
-    const res = await request(app).post("/api/queue/1/serve");
+    const res = await request(app).post("/api/queue/1/serve").set("x-user-id", "1");
     expect(res.statusCode).toBe(400);
     expect(res.body.error).toMatch(/empty/i);
   });
 
   test("returns 404 for unknown service", async () => {
-    db.query.mockResolvedValueOnce({ rows: [] });
-    const res = await request(app).post("/api/queue/999/serve");
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)      // requireAdmin
+      .mockResolvedValueOnce({ rows: [] });   // service not found
+
+    const res = await request(app).post("/api/queue/999/serve").set("x-user-id", "1");
     expect(res.statusCode).toBe(404);
   });
 
   test("returns 500 on database error", async () => {
-    db.query.mockRejectedValueOnce(new Error("DB error"));
-    const res = await request(app).post("/api/queue/1/serve");
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)                 // requireAdmin
+      .mockRejectedValueOnce(new Error("DB error"));     // handler query fails
+
+    const res = await request(app).post("/api/queue/1/serve").set("x-user-id", "1");
     expect(res.statusCode).toBe(500);
   });
 });

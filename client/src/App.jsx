@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { api } from './api'
+import { api, setUser } from './api'
 import './App.css'
 import { Sidebar } from './components/Sidebar'
 import { LoginScreen } from './screens/LoginScreen'
@@ -23,6 +23,7 @@ export default function App() {
   const [queueEntry, setQueueEntry]                 = useState(null)
 
   const handleLogin = async (r, user) => {
+    setUser(user)
     setRole(r)
     setCurrentUser(user)
     setPage(r === 'admin' ? 'admin-dashboard' : 'dashboard')
@@ -44,6 +45,7 @@ export default function App() {
   }
 
   const handleLogout = () => {
+    setUser(null)
     setLoggedIn(false)
     setCurrentUser(null)
     setRole('user')

@@ -2,7 +2,7 @@
 const express  = require("express");
 const router   = express.Router();
 const db       = require("../db");
-const { validateJoinQueue }  = require("../middleware/validate");
+const { validateJoinQueue, requireAdmin } = require("../middleware/validate");
 const { logNotification }    = require("./notifications");
 
 function deriveStatus(position) {
@@ -47,7 +47,7 @@ async function rebuildQueuePositions(queueId, serviceDuration) {
   );
 }
 
-router.put("/:serviceId/status", async (req, res) => {
+router.put("/:serviceId/status", requireAdmin, async (req, res) => {
   const serviceId = parseInt(req.params.serviceId);
   const { status } = req.body;
 
@@ -255,7 +255,7 @@ router.delete("/:serviceId/leave", async (req, res) => {
   }
 });
 
-router.post("/:serviceId/serve", async (req, res) => {
+router.post("/:serviceId/serve", requireAdmin, async (req, res) => {
   const serviceId = parseInt(req.params.serviceId);
 
   try {
