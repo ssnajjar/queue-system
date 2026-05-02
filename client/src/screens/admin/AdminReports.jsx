@@ -3,7 +3,7 @@ import { api } from '../../api'
 
 const EMPTY_FILTERS = { startDate: '', endDate: '', serviceId: '' }
 
-export function AdminReportsScreen() {
+export function AdminReports() {
   const [services, setServices]   = useState([])
   const [filters, setFilters]     = useState(EMPTY_FILTERS)
   const [applied, setApplied]     = useState(EMPTY_FILTERS)
