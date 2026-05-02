@@ -7,6 +7,8 @@ const serviceRoutes      = require("./routes/services");
 const queueRoutes        = require("./routes/queue");
 const notificationRoutes = require("./routes/notifications");
 const historyRoutes      = require("./routes/history");
+const reportRoutes       = require("./routes/reports");
+const smartRoutes        = require("./routes/smart");
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -19,6 +21,8 @@ app.use("/api/services",      serviceRoutes);
 app.use("/api/queue",         queueRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/history",       historyRoutes);
+app.use("/api/reports",       reportRoutes);
+app.use("/api/smart",         smartRoutes);
 
 app.get("/", (req, res) => {
   res.json({ message: "QueueSmart API is running", version: "1.0.0" });

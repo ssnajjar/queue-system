@@ -300,3 +300,33 @@ input, select, textarea { font-family: inherit; }
 .qmr-wait { font-size: 12px; color: var(--muted); }
 .next-badge { padding: 3px 10px; background: rgba(245, 166, 35, 0.15); color: var(--amber); border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
 .qmr-actions { display: flex; gap: 8px; }
+
+/* smart estimate panel */
+.smart-panel { background: var(--navy2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 12px; }
+.smart-panel-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.smart-badge { background: rgba(77, 166, 255, 0.15); color: var(--blue); font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.05em; }
+.smart-label { font-size: 12px; color: var(--muted); }
+.smart-stats { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 0; }
+.smart-stat { min-width: 120px; }
+.smart-num { font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 600; color: var(--text); line-height: 1; margin-bottom: 4px; }
+.smart-num.green { color: var(--green); }
+.smart-num.amber { color: var(--amber); }
+.smart-stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+.alt-suggestion { display: flex; align-items: center; gap: 12px; background: rgba(77, 166, 255, 0.06); border: 1px solid rgba(77, 166, 255, 0.2); border-radius: 10px; padding: 14px 16px; margin-top: 16px; }
+.alt-icon { font-size: 20px; color: var(--blue); flex-shrink: 0; }
+.alt-body { flex: 1; }
+.alt-title { font-size: 12px; font-weight: 700; color: var(--blue); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.alt-desc { font-size: 13px; color: var(--text); line-height: 1.5; }
+.btn-alt { background: rgba(77, 166, 255, 0.15); color: var(--blue); border: 1px solid rgba(77, 166, 255, 0.3); border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.btn-alt:hover { background: rgba(77, 166, 255, 0.25); }
+
+/* reports */
+.report-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.report-table th { text-align: left; padding: 8px 12px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); font-weight: 600; }
+.report-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.report-table tr:last-child td { border-bottom: none; }
+.report-table tbody tr:hover { background: var(--navy3); }
+.report-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; text-transform: capitalize; }
+.badge-served   { background: rgba(61, 220, 151, 0.15); color: var(--green); }
+.badge-canceled { background: rgba(255, 95, 95, 0.15);  color: var(--red); }
