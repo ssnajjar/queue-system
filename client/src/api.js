@@ -4,11 +4,17 @@
 
 const BASE_URL = 'http://localhost:3000/api'
 
+let _currentUser = null
+
+export function setUser(user) {
+  _currentUser = user
+}
+
 async function request(method, path, body = null) {
-  const options = {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-  }
+  const headers = { 'Content-Type': 'application/json' }
+  if (_currentUser) headers['x-user-id'] = String(_currentUser.id)
+
+  const options = { method, headers }
   if (body) options.body = JSON.stringify(body)
 
   const res = await fetch(`${BASE_URL}${path}`, options)

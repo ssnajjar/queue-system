@@ -13,6 +13,8 @@ beforeEach(() => {
 // Shared mock data
 // ---------------------------------------------------------------------------
 
+const ADMIN_MOCK = { rows: [{ role: "admin" }] };
+
 const mockOverall = {
   totalEntries: "10",
   totalServed:  "7",
@@ -37,10 +39,11 @@ const mockHistoryRows = [
 describe("GET /api/reports/summary", () => {
   test("returns overall stats and per-service breakdown", async () => {
     db.query
-      .mockResolvedValueOnce({ rows: [mockOverall] })    // overall query
-      .mockResolvedValueOnce({ rows: mockByService });   // by-service query
+      .mockResolvedValueOnce(ADMIN_MOCK)                      // requireAdmin
+      .mockResolvedValueOnce({ rows: [mockOverall] })         // overall query
+      .mockResolvedValueOnce({ rows: mockByService });        // by-service query
 
-    const res = await request(app).get("/api/reports/summary");
+    const res = await request(app).get("/api/reports/summary").set("x-user-id", "1");
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toHaveProperty("overall");
@@ -49,10 +52,11 @@ describe("GET /api/reports/summary", () => {
 
   test("overall stats contain expected fields", async () => {
     db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
       .mockResolvedValueOnce({ rows: [mockOverall] })
       .mockResolvedValueOnce({ rows: mockByService });
 
-    const res = await request(app).get("/api/reports/summary");
+    const res = await request(app).get("/api/reports/summary").set("x-user-id", "1");
 
     expect(res.body.overall).toHaveProperty("totalServed");
     expect(res.body.overall).toHaveProperty("totalCanceled");
@@ -61,10 +65,11 @@ describe("GET /api/reports/summary", () => {
 
   test("byService is an array with correct structure", async () => {
     db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
       .mockResolvedValueOnce({ rows: [mockOverall] })
       .mockResolvedValueOnce({ rows: mockByService });
 
-    const res = await request(app).get("/api/reports/summary");
+    const res = await request(app).get("/api/reports/summary").set("x-user-id", "1");
 
     expect(Array.isArray(res.body.byService)).toBe(true);
     expect(res.body.byService[0]).toHaveProperty("service");
@@ -74,41 +79,52 @@ describe("GET /api/reports/summary", () => {
 
   test("accepts startDate filter without error", async () => {
     db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
       .mockResolvedValueOnce({ rows: [mockOverall] })
       .mockResolvedValueOnce({ rows: mockByService });
 
-    const res = await request(app).get("/api/reports/summary?startDate=2024-01-01");
+    const res = await request(app)
+      .get("/api/reports/summary?startDate=2024-01-01")
+      .set("x-user-id", "1");
 
     expect(res.statusCode).toBe(200);
   });
 
   test("accepts endDate filter without error", async () => {
     db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
       .mockResolvedValueOnce({ rows: [mockOverall] })
       .mockResolvedValueOnce({ rows: mockByService });
 
-    const res = await request(app).get("/api/reports/summary?endDate=2024-01-31");
+    const res = await request(app)
+      .get("/api/reports/summary?endDate=2024-01-31")
+      .set("x-user-id", "1");
 
     expect(res.statusCode).toBe(200);
   });
 
   test("accepts serviceId filter without error", async () => {
     db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
       .mockResolvedValueOnce({ rows: [mockOverall] })
       .mockResolvedValueOnce({ rows: mockByService });
 
-    const res = await request(app).get("/api/reports/summary?serviceId=1");
+    const res = await request(app)
+      .get("/api/reports/summary?serviceId=1")
+      .set("x-user-id", "1");
 
     expect(res.statusCode).toBe(200);
   });
 
   test("accepts combined date range and service filters", async () => {
     db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
       .mockResolvedValueOnce({ rows: [mockOverall] })
       .mockResolvedValueOnce({ rows: mockByService });
 
     const res = await request(app)
-      .get("/api/reports/summary?startDate=2024-01-01&endDate=2024-01-31&serviceId=2");
+      .get("/api/reports/summary?startDate=2024-01-01&endDate=2024-01-31&serviceId=2")
+      .set("x-user-id", "1");
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toHaveProperty("overall");
@@ -116,19 +132,34 @@ describe("GET /api/reports/summary", () => {
 
   test("returns empty byService array when no records match", async () => {
     db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
       .mockResolvedValueOnce({ rows: [{ totalEntries: "0", totalServed: "0", totalCanceled: "0", avgWaitTime: null }] })
       .mockResolvedValueOnce({ rows: [] });
 
-    const res = await request(app).get("/api/reports/summary");
+    const res = await request(app).get("/api/reports/summary").set("x-user-id", "1");
 
     expect(res.statusCode).toBe(200);
     expect(res.body.byService).toEqual([]);
   });
 
-  test("returns 500 on database error", async () => {
-    db.query.mockRejectedValueOnce(new Error("DB error"));
-
+  test("returns 401 when no x-user-id header", async () => {
     const res = await request(app).get("/api/reports/summary");
+    expect(res.statusCode).toBe(401);
+  });
+
+  test("returns 403 for non-admin user", async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ role: "user" }] }); // requireAdmin
+
+    const res = await request(app).get("/api/reports/summary").set("x-user-id", "2");
+    expect(res.statusCode).toBe(403);
+  });
+
+  test("returns 500 on database error", async () => {
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)                     // requireAdmin
+      .mockRejectedValueOnce(new Error("DB error"));         // summary query fails
+
+    const res = await request(app).get("/api/reports/summary").set("x-user-id", "1");
 
     expect(res.statusCode).toBe(500);
     expect(res.body).toHaveProperty("error");
@@ -141,18 +172,22 @@ describe("GET /api/reports/summary", () => {
 
 describe("GET /api/reports/history", () => {
   test("returns all history records", async () => {
-    db.query.mockResolvedValueOnce({ rows: mockHistoryRows });
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
+      .mockResolvedValueOnce({ rows: mockHistoryRows });
 
-    const res = await request(app).get("/api/reports/history");
+    const res = await request(app).get("/api/reports/history").set("x-user-id", "1");
 
     expect(res.statusCode).toBe(200);
     expect(res.body.length).toBe(2);
   });
 
   test("records contain expected fields", async () => {
-    db.query.mockResolvedValueOnce({ rows: mockHistoryRows });
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
+      .mockResolvedValueOnce({ rows: mockHistoryRows });
 
-    const res = await request(app).get("/api/reports/history");
+    const res = await request(app).get("/api/reports/history").set("x-user-id", "1");
 
     const row = res.body[0];
     expect(row).toHaveProperty("userId");
@@ -164,36 +199,47 @@ describe("GET /api/reports/history", () => {
   });
 
   test("returns empty array when no records match", async () => {
-    db.query.mockResolvedValueOnce({ rows: [] });
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
+      .mockResolvedValueOnce({ rows: [] });
 
-    const res = await request(app).get("/api/reports/history");
+    const res = await request(app).get("/api/reports/history").set("x-user-id", "1");
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual([]);
   });
 
   test("accepts serviceId filter without error", async () => {
-    db.query.mockResolvedValueOnce({ rows: [mockHistoryRows[0]] });
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
+      .mockResolvedValueOnce({ rows: [mockHistoryRows[0]] });
 
-    const res = await request(app).get("/api/reports/history?serviceId=1");
+    const res = await request(app)
+      .get("/api/reports/history?serviceId=1")
+      .set("x-user-id", "1");
 
     expect(res.statusCode).toBe(200);
     expect(res.body.length).toBe(1);
   });
 
   test("accepts date range filters without error", async () => {
-    db.query.mockResolvedValueOnce({ rows: mockHistoryRows });
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
+      .mockResolvedValueOnce({ rows: mockHistoryRows });
 
     const res = await request(app)
-      .get("/api/reports/history?startDate=2024-01-01&endDate=2024-01-31");
+      .get("/api/reports/history?startDate=2024-01-01&endDate=2024-01-31")
+      .set("x-user-id", "1");
 
     expect(res.statusCode).toBe(200);
   });
 
   test("returns 500 on database error", async () => {
-    db.query.mockRejectedValueOnce(new Error("DB error"));
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
+      .mockRejectedValueOnce(new Error("DB error"));
 
-    const res = await request(app).get("/api/reports/history");
+    const res = await request(app).get("/api/reports/history").set("x-user-id", "1");
 
     expect(res.statusCode).toBe(500);
   });
@@ -205,27 +251,33 @@ describe("GET /api/reports/history", () => {
 
 describe("GET /api/reports/export/csv", () => {
   test("responds with text/csv content type", async () => {
-    db.query.mockResolvedValueOnce({ rows: mockHistoryRows });
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
+      .mockResolvedValueOnce({ rows: mockHistoryRows });
 
-    const res = await request(app).get("/api/reports/export/csv");
+    const res = await request(app).get("/api/reports/export/csv").set("x-user-id", "1");
 
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toMatch(/text\/csv/);
   });
 
   test("sets Content-Disposition as attachment", async () => {
-    db.query.mockResolvedValueOnce({ rows: mockHistoryRows });
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
+      .mockResolvedValueOnce({ rows: mockHistoryRows });
 
-    const res = await request(app).get("/api/reports/export/csv");
+    const res = await request(app).get("/api/reports/export/csv").set("x-user-id", "1");
 
     expect(res.headers["content-disposition"]).toMatch(/attachment/);
     expect(res.headers["content-disposition"]).toMatch(/\.csv/);
   });
 
   test("first line of CSV contains correct column headers", async () => {
-    db.query.mockResolvedValueOnce({ rows: mockHistoryRows });
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
+      .mockResolvedValueOnce({ rows: mockHistoryRows });
 
-    const res = await request(app).get("/api/reports/export/csv");
+    const res = await request(app).get("/api/reports/export/csv").set("x-user-id", "1");
     const firstLine = res.text.split("\n")[0];
 
     expect(firstLine).toContain("Entry ID");
@@ -236,9 +288,11 @@ describe("GET /api/reports/export/csv", () => {
   });
 
   test("CSV body contains a row for each history record", async () => {
-    db.query.mockResolvedValueOnce({ rows: mockHistoryRows });
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
+      .mockResolvedValueOnce({ rows: mockHistoryRows });
 
-    const res = await request(app).get("/api/reports/export/csv");
+    const res = await request(app).get("/api/reports/export/csv").set("x-user-id", "1");
     const lines = res.text.trim().split("\n");
 
     // header + 2 data rows
@@ -246,9 +300,11 @@ describe("GET /api/reports/export/csv", () => {
   });
 
   test("data rows include correct user name and service", async () => {
-    db.query.mockResolvedValueOnce({ rows: mockHistoryRows });
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
+      .mockResolvedValueOnce({ rows: mockHistoryRows });
 
-    const res = await request(app).get("/api/reports/export/csv");
+    const res = await request(app).get("/api/reports/export/csv").set("x-user-id", "1");
     const lines = res.text.trim().split("\n");
 
     expect(lines[1]).toContain("Alice");
@@ -256,9 +312,11 @@ describe("GET /api/reports/export/csv", () => {
   });
 
   test("returns only headers when no records match filters", async () => {
-    db.query.mockResolvedValueOnce({ rows: [] });
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
+      .mockResolvedValueOnce({ rows: [] });
 
-    const res = await request(app).get("/api/reports/export/csv");
+    const res = await request(app).get("/api/reports/export/csv").set("x-user-id", "1");
     const lines = res.text.trim().split("\n");
 
     expect(res.statusCode).toBe(200);
@@ -266,29 +324,40 @@ describe("GET /api/reports/export/csv", () => {
   });
 
   test("accepts date and service filters without error", async () => {
-    db.query.mockResolvedValueOnce({ rows: [mockHistoryRows[0]] });
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
+      .mockResolvedValueOnce({ rows: [mockHistoryRows[0]] });
 
     const res = await request(app)
-      .get("/api/reports/export/csv?startDate=2024-01-01&serviceId=1");
+      .get("/api/reports/export/csv?startDate=2024-01-01&serviceId=1")
+      .set("x-user-id", "1");
 
     expect(res.statusCode).toBe(200);
   });
 
   test("handles null waitTime without crashing", async () => {
-    db.query.mockResolvedValueOnce({ rows: [mockHistoryRows[1]] }); // Bob, waitTime: null
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
+      .mockResolvedValueOnce({ rows: [mockHistoryRows[1]] }); // Bob, waitTime: null
 
-    const res = await request(app).get("/api/reports/export/csv");
+    const res = await request(app).get("/api/reports/export/csv").set("x-user-id", "1");
 
     expect(res.statusCode).toBe(200);
-    // null becomes empty string in CSV — row should still exist
     const lines = res.text.trim().split("\n");
     expect(lines.length).toBe(2);
   });
 
-  test("returns 500 on database error", async () => {
-    db.query.mockRejectedValueOnce(new Error("DB error"));
-
+  test("returns 401 when no x-user-id header", async () => {
     const res = await request(app).get("/api/reports/export/csv");
+    expect(res.statusCode).toBe(401);
+  });
+
+  test("returns 500 on database error", async () => {
+    db.query
+      .mockResolvedValueOnce(ADMIN_MOCK)
+      .mockRejectedValueOnce(new Error("DB error"));
+
+    const res = await request(app).get("/api/reports/export/csv").set("x-user-id", "1");
 
     expect(res.statusCode).toBe(500);
   });

@@ -1,9 +1,30 @@
 // middleware/validate.js
 
+const db = require("../db");
+
 const MAX_NAME_LENGTH  = 100;
 const MAX_EMAIL_LENGTH = 254;
 const MAX_DESC_LENGTH  = 500;
 const VALID_PRIORITIES = ["low", "medium", "high"];
+
+async function requireAdmin(req, res, next) {
+  const userId = parseInt(req.headers["x-user-id"]);
+  if (!userId) return res.status(401).json({ error: "Authentication required" });
+
+  try {
+    const result = await db.query(
+      "SELECT role FROM user_credentials WHERE id = $1",
+      [userId]
+    );
+    if (result.rows.length === 0 || result.rows[0].role !== "admin") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    next();
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+}
 
 function missingFields(body, fields) {
   return fields.filter((f) => !body[f] && body[f] !== 0);
@@ -103,4 +124,4 @@ function validateJoinQueue(req, res, next) {
   next();
 }
 
-module.exports = { validateRegister, validateLogin, validateService, validateJoinQueue };
+module.exports = { validateRegister, validateLogin, validateService, validateJoinQueue, requireAdmin };
