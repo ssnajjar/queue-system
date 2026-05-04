@@ -36,7 +36,7 @@ async function rebuildQueuePositions(queueId, serviceDuration) {
   await db.query(
     `UPDATE queue_entry qe
      SET position          = subq.new_pos,
-         wait_time_minutes = subq.new_pos * $2
+         wait_time_minutes = (subq.new_pos - 1) * $2
      FROM (
        SELECT id, ROW_NUMBER() OVER (ORDER BY join_time) AS new_pos
        FROM queue_entry
@@ -181,7 +181,7 @@ router.post("/:serviceId/join", validateJoinQueue, async (req, res) => {
       [queueId]
     );
     const position = parseInt(posResult.rows[0].count) + 1;
-    const waitTime = position * service.duration;
+    const waitTime = (position - 1) * service.duration;
 
     const entryResult = await db.query(
       `INSERT INTO queue_entry (queue_id, user_id, user_name, position, wait_time_minutes, status)

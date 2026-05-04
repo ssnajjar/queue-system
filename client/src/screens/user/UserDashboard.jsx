@@ -58,8 +58,8 @@ export function UserDashboard({ user, setPage, setActiveService, inQueue, curren
           <div className="stat-label">Min Wait</div>
         </div>
         <div className="stat-card">
-          <div className={`stat-num ${inQueue ? '' : 'muted'}`}>
-            {inQueue ? notifications.length : 0}
+          <div className={`stat-num ${notifications.length > 0 ? '' : 'muted'}`}>
+            {notifications.length}
           </div>
           <div className="stat-label">Notifications</div>
         </div>
@@ -97,12 +97,11 @@ export function UserDashboard({ user, setPage, setActiveService, inQueue, curren
 
         <div className="card">
           <div className="card-header"><h3>Notifications</h3></div>
-          {inQueue && notifications.length > 0
+          {notifications.length > 0
             ? notifications.map(n => <Notification key={n.id} notif={n} />)
             : (
               <div className="notif-empty">
                 <p>No notifications yet.</p>
-                <p className="notif-empty-sub">Join a queue to start receiving updates.</p>
               </div>
             )
           }
