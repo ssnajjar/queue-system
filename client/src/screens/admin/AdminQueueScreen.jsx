@@ -27,6 +27,13 @@ export function AdminQueueScreen() {
       .then(data => setQueue(data.queue || []))
       .catch(err => setError(err.message))
       .finally(() => setLoadingQ(false))
+
+    const interval = setInterval(() => {
+      api.queue.get(selected)
+        .then(data => setQueue(data.queue || []))
+        .catch(() => {})
+    }, 5000)
+    return () => clearInterval(interval)
   }, [selected])
 
   const serveNext = async () => {

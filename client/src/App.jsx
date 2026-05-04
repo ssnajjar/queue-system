@@ -89,6 +89,7 @@ export default function App() {
           setCurrentQueueService={setCurrentQueueService}
           queueEntry={queueEntry}
           setQueueEntry={setQueueEntry}
+          setPage={setPage}
         />
       )
       case 'history':        return <HistoryScreen user={currentUser} />

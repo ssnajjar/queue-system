@@ -1,21 +1,46 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api'
 
-export function QueueStatusScreen({ user, inQueue, setInQueue, currentQueueService, setCurrentQueueService, queueEntry, setQueueEntry }) {
+export function QueueStatusScreen({ user, inQueue, setInQueue, currentQueueService, setCurrentQueueService, queueEntry, setQueueEntry, setPage }) {
   const [liveQueue, setLiveQueue] = useState([])
   const [loading, setLoading]     = useState(false)
   const [leaving, setLeaving]     = useState(false)
+  const [served, setServed]       = useState(false)
   const [error, setError]         = useState('')
 
-  // fetch live queue from backend whenever the user is in a queue
+  // Poll every 5 seconds while in queue; detect when the user is served
   useEffect(() => {
     if (!inQueue || !queueEntry?.serviceId) return
-    setLoading(true)
-    api.queue.get(queueEntry.serviceId)
-      .then(data => setLiveQueue(data.queue || []))
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false))
-  }, [inQueue, queueEntry?.serviceId])
+
+    const serviceId = queueEntry.serviceId
+    const userId    = user?.id
+
+    const fetchQueue = (showLoading) => {
+      if (showLoading) setLoading(true)
+      api.queue.get(serviceId)
+        .then(data => {
+          const entries = data.queue || []
+          setLiveQueue(entries)
+          setLoading(false)
+
+          const myEntry = entries.find(p => p.userId === userId)
+          if (myEntry) {
+            setQueueEntry(prev => ({ ...prev, position: myEntry.position, waitTime: myEntry.waitTime }))
+          } else {
+            // No longer in queue — served or removed by admin
+            setServed(true)
+            setInQueue(false)
+            setCurrentQueueService(null)
+            setQueueEntry(null)
+          }
+        })
+        .catch(() => setLoading(false))
+    }
+
+    fetchQueue(true)
+    const interval = setInterval(() => fetchQueue(false), 5000)
+    return () => clearInterval(interval)
+  }, [inQueue]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const leaveQueue = async () => {
     if (!user || !queueEntry) return
@@ -34,10 +59,26 @@ export function QueueStatusScreen({ user, inQueue, setInQueue, currentQueueServi
     }
   }
 
-  // derive status from live position
   const myStatus = queueEntry
     ? (queueEntry.position <= 2 ? 'almost-ready' : 'waiting')
     : 'waiting'
+
+  if (served) {
+    return (
+      <div className="screen">
+        <div className="screen-header">
+          <h1>Queue Status</h1>
+          <p className="screen-sub">{currentQueueService || 'Service complete'}</p>
+        </div>
+        <div className="card success-card">
+          <div className="success-icon">✓</div>
+          <h2>You've been served!</h2>
+          <p>Your turn has arrived. Thanks for using QueueSmart.</p>
+          <button className="btn-primary" onClick={() => setPage('history')}>View History →</button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="screen">
